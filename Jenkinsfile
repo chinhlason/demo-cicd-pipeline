@@ -15,7 +15,8 @@ pipeline {
                         'DOCKER_IMAGE',
                         'GITOPS_REPO_URL',
                         'GITOPS_BRANCH',
-                        'GITOPS_VALUES_FILE'
+                        'GITOPS_VALUES_FILE',
+                        'ARGOCD_APPLICATION'
                     ]
                     def missing = required.findAll { !params[it]?.trim() }
                     if (missing) {
@@ -168,6 +169,42 @@ EOF
                             rm -f "$ASKPASS"
                         '''
                     }
+                }
+            }
+        }
+
+        stage('Sync Argo CD') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'argocd-sync-kubeconfig',
+                        variable: 'KUBECONFIG'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        kubectl --kubeconfig "$KUBECONFIG" \
+                          -n argocd patch application "$ARGOCD_APPLICATION" \
+                          --type merge \
+                          -p '{"operation":{"sync":{"prune":true}}}'
+
+                        for attempt in $(seq 1 60); do
+                            sync_status=$(kubectl --kubeconfig "$KUBECONFIG" \
+                              -n argocd get application "$ARGOCD_APPLICATION" \
+                              -o jsonpath='{.status.sync.status}')
+                            health_status=$(kubectl --kubeconfig "$KUBECONFIG" \
+                              -n argocd get application "$ARGOCD_APPLICATION" \
+                              -o jsonpath='{.status.health.status}')
+                            echo "Argo CD sync=$sync_status health=$health_status attempt=$attempt/60"
+                            if [ "$sync_status" = "Synced" ] && [ "$health_status" = "Healthy" ]; then
+                                exit 0
+                            fi
+                            sleep 5
+                        done
+
+                        echo "Argo CD did not become Synced/Healthy within 5 minutes"
+                        exit 1
+                    '''
                 }
             }
         }
