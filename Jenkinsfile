@@ -5,40 +5,30 @@ pipeline {
         skipDefaultCheckout(true)
     }
 
-    parameters {
-        string(
-            name: 'APP_REPO_URL',
-            defaultValue: 'https://github.com/chinhlason/demo-cicd-backend-app.git',
-            description: 'HTTPS URL of the application repository'
-        )
-        string(
-            name: 'APP_BRANCH',
-            defaultValue: 'main',
-            description: 'Application branch to build'
-        )
-        string(
-            name: 'DOCKER_IMAGE',
-            defaultValue: 'sonnvt/demo-cicd-backend-app',
-            description: 'Docker Hub image name without the tag'
-        )
-        string(
-            name: 'GITOPS_REPO_URL',
-            defaultValue: 'https://github.com/chinhlason/demo-cicd-gitops.git',
-            description: 'HTTPS URL of the GitOps repository'
-        )
-        string(
-            name: 'GITOPS_BRANCH',
-            defaultValue: 'main',
-            description: 'GitOps branch to update'
-        )
-        string(
-            name: 'GITOPS_VALUES_FILE',
-            defaultValue: 'charts/demo-cicd-backend/values.yaml',
-            description: 'Values file to update with the pushed image digest'
-        )
-    }
-
     stages {
+        stage('Validate onboarding config') {
+            steps {
+                script {
+                    def required = [
+                        'APP_REPO_URL',
+                        'APP_BRANCH',
+                        'DOCKER_IMAGE',
+                        'GITOPS_REPO_URL',
+                        'GITOPS_BRANCH',
+                        'GITOPS_VALUES_FILE'
+                    ]
+                    def missing = required.findAll { !params[it]?.trim() }
+                    if (missing) {
+                        error "Missing Jenkins job parameters: ${missing.join(', ')}"
+                    }
+                    echo "Application repository: ${params.APP_REPO_URL} (${params.APP_BRANCH})"
+                    echo "Docker image: ${params.DOCKER_IMAGE}"
+                    echo "GitOps repository: ${params.GITOPS_REPO_URL} (${params.GITOPS_BRANCH})"
+                    echo "GitOps values file: ${params.GITOPS_VALUES_FILE}"
+                }
+            }
+        }
+
         stage('Checkout application') {
             steps {
                 dir('app') {
