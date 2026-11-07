@@ -18,7 +18,7 @@ pipeline {
         )
         string(
             name: 'DOCKER_IMAGE',
-            defaultValue: 'chinhlason/demo-cicd-backend-app',
+            defaultValue: 'sonnvt/demo-cicd-backend-app',
             description: 'Docker Hub image name without the tag'
         )
     }
